@@ -7,20 +7,30 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Conv2D
 from keras.models import Sequential, Model
 from keras.optimizers import RMSprop
+from keras.preprocessing.image import ImageDataGenerator
 
 import keras.backend as K
 
 import matplotlib.pyplot as plt
 
 import sys
-
+import time
 import numpy as np
+
+imageDataGen = ImageDataGenerator()
+
+train_data_gen = imageDataGen.flow_from_directory(
+        directory=r"./images/",
+        target_size=(28, 28),
+        batch_size=32,
+        color_mode='rgb',
+        class_mode='binary')
 
 class WGAN():
     def __init__(self):
         self.img_rows = 28
         self.img_cols = 28
-        self.channels = 1
+        self.channels = 3
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
         self.latent_dim = 100
 
@@ -114,16 +124,17 @@ class WGAN():
     def train(self, epochs, batch_size=128, sample_interval=50):
 
         # Load the dataset
-        (X_train, _), (_, _) = mnist.load_data()
+        # (X_train, _), (_, _) = mnist.load_data()
 
         # Rescale -1 to 1
-        X_train = (X_train.astype(np.float32) - 127.5) / 127.5
-        X_train = np.expand_dims(X_train, axis=3)
+        # X_train = (X_train.astype(np.float32) - 127.5) / 127.5
+        # X_train = np.expand_dims(X_train, axis=3)
 
         # Adversarial ground truths
         valid = -np.ones((batch_size, 1))
         fake = np.ones((batch_size, 1))
 
+        start_time = time.time()
         for epoch in range(epochs):
 
             for _ in range(self.n_critic):
@@ -133,8 +144,10 @@ class WGAN():
                 # ---------------------
 
                 # Select a random batch of images
-                idx = np.random.randint(0, X_train.shape[0], batch_size)
-                imgs = X_train[idx]
+                # idx = np.random.randint(0, X_train.shape[0], batch_size)
+                # imgs = X_train[idx]
+                imgs, _ = train_data_gen.next()
+                imgs = (imgs.astype(np.float32) - 127.5) / 127.5
                 
                 # Sample noise as generator input
                 noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
@@ -161,7 +174,7 @@ class WGAN():
             g_loss = self.combined.train_on_batch(noise, valid)
 
             # Plot the progress
-            print ("%d [D loss: %f] [G loss: %f]" % (epoch, 1 - d_loss[0], 1 - g_loss[0]))
+            print ("%d of %d [D loss: %f] [G loss: %f] time:%4.4f" % (epoch, epochs, 1 - d_loss[0], 1 - g_loss[0], time.time() - start_time))
 
             # If at save interval => save generated image samples
             if epoch % sample_interval == 0:
@@ -182,10 +195,10 @@ class WGAN():
                 axs[i,j].imshow(gen_imgs[cnt, :,:,0], cmap='gray')
                 axs[i,j].axis('off')
                 cnt += 1
-        fig.savefig("images/mnist_%d.png" % epoch)
+        fig.savefig("images/anime_%d.png" % epoch)
         plt.close()
 
 
 if __name__ == '__main__':
     wgan = WGAN()
-    wgan.train(epochs=4000, batch_size=32, sample_interval=50)
+    wgan.train(epochs=200, batch_size=32, sample_interval=50)
